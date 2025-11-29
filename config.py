@@ -7,7 +7,7 @@ MASTER_DB = {
 }
 
 READ_REPLICA_DB = {
-    'host': '<READ_REPLICA_ENDPOINT>',
+    'host': 'project-rds-mysql-read-replica.cncoyq22m5uo.eu-central-1.rds.amazonaws.com',
     'user': 'admin',
     'password': 'password123!',
     'database': 'project_db'
