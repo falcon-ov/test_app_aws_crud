@@ -1,61 +1,29 @@
-from flask import Flask, render_template, request, jsonify
-from sqlalchemy import create_engine, text
-from config import MASTER_DB, READ_REPLICA_DB
+from flask import Flask, request, jsonify
+from dynamodb_crud import create_todo, get_todos, update_todo, delete_todo
 
 app = Flask(__name__)
 
-# подключение к master (для записи)
-master_engine = create_engine(
-    f"mysql+pymysql://{MASTER_DB['user']}:{MASTER_DB['password']}@{MASTER_DB['host']}/{MASTER_DB['database']}"
-)
-
-# подключение к read replica (для чтения)
-replica_engine = create_engine(
-    f"mysql+pymysql://{READ_REPLICA_DB['user']}:{READ_REPLICA_DB['password']}@{READ_REPLICA_DB['host']}/{READ_REPLICA_DB['database']}"
-)
-
-# --- маршруты ---
-@app.route('/')
-def index():
-    return render_template('index.html')
-
-
-@app.route('/todos', methods=['GET'])
-def get_todos():
-    with replica_engine.connect() as conn:
-        result = conn.execute(text("SELECT * FROM todos"))
-        todos = [dict(row._mapping) for row in result]
+@app.route('/dynamo/todos', methods=['GET'])
+def list_todos():
+    todos = get_todos()
     return jsonify(todos)
 
-
-@app.route('/todos', methods=['POST'])
-def create_todo():
+@app.route('/dynamo/todos', methods=['POST'])
+def add_todo():
     data = request.json
-    with master_engine.begin() as conn:  # begin() автоматически делает commit
-        conn.execute(
-            text("INSERT INTO todos (title, category_id, status) VALUES (:title, :category_id, :status)"),
-            {"title": data["title"], "category_id": data["category_id"], "status": data["status"]}
-        )
-    return jsonify({'message': 'Todo created'}), 201
+    create_todo(data)
+    return jsonify({"message": "Todo created"}), 201
 
-
-@app.route('/todos/<int:id>', methods=['PUT'])
-def update_todo(id):
+@app.route('/dynamo/todos/<todo_id>', methods=['PUT'])
+def edit_todo(todo_id):
     data = request.json
-    with master_engine.begin() as conn:
-        conn.execute(
-            text("UPDATE todos SET title=:title, category_id=:category_id, status=:status WHERE id=:id"),
-            {"title": data["title"], "category_id": data["category_id"], "status": data["status"], "id": id}
-        )
-    return jsonify({'message': 'Todo updated'})
+    update_todo(todo_id, data)
+    return jsonify({"message": "Todo updated"})
 
-
-@app.route('/todos/<int:id>', methods=['DELETE'])
-def delete_todo(id):
-    with master_engine.begin() as conn:
-        conn.execute(text("DELETE FROM todos WHERE id=:id"), {"id": id})
-    return jsonify({'message': 'Todo deleted'})
-
+@app.route('/dynamo/todos/<todo_id>', methods=['DELETE'])
+def remove_todo(todo_id):
+    delete_todo(todo_id)
+    return jsonify({"message": "Todo deleted"})
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=5001)
