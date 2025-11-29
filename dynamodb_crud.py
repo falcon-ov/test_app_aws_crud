@@ -1,7 +1,7 @@
 import boto3
 from boto3.dynamodb.conditions import Key
 
-dynamodb = boto3.resource('dynamodb')
+dynamodb = boto3.resource('dynamodb', region_name='eu-central-1')
 table = dynamodb.Table('Todos')
 
 def create_todo(todo):
